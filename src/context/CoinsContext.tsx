@@ -1,22 +1,17 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-// ✅ export CoinType
 export type CoinType = 'rendaFixa' | 'acoes' | 'fiis' | 'caixa';
 
-interface Coins {
-  [key: string]: number;
-}
-
 interface CoinsContextProps {
-  coins: Coins;
+  coins: Record<CoinType, number>;
   addCoins: (type: CoinType, amount: number) => void;
-  spendCoins: (type: CoinType, amount: number) => boolean;
+  spendCoins: (type: CoinType, amount: number) => void; // função para gastar moedas
 }
 
 const CoinsContext = createContext<CoinsContextProps | undefined>(undefined);
 
 export const CoinsProvider = ({ children }: { children: ReactNode }) => {
-  const [coins, setCoins] = useState<Coins>({
+  const [coins, setCoins] = useState<Record<CoinType, number>>({
     rendaFixa: 0,
     acoes: 0,
     fiis: 0,
@@ -24,13 +19,11 @@ export const CoinsProvider = ({ children }: { children: ReactNode }) => {
   });
 
   const addCoins = (type: CoinType, amount: number) => {
-    setCoins(prev => ({ ...prev, [type]: (prev[type] || 0) + amount }));
+    setCoins(prev => ({ ...prev, [type]: prev[type] + amount }));
   };
 
   const spendCoins = (type: CoinType, amount: number) => {
-    if ((coins[type] || 0) < amount) return false;
-    setCoins(prev => ({ ...prev, [type]: prev[type] - amount }));
-    return true;
+    setCoins(prev => ({ ...prev, [type]: Math.max(prev[type] - amount, 0) }));
   };
 
   return (
@@ -40,7 +33,6 @@ export const CoinsProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// ✅ Exportar hook
 export const useCoins = () => {
   const context = useContext(CoinsContext);
   if (!context) throw new Error('useCoins must be used within CoinsProvider');

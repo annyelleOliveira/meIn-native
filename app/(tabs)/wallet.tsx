@@ -1,47 +1,46 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useCoins } from '../../src/context/CoinsContext';
 import { useInvestments } from '../../src/context/InvestmentsContext';
 import { useEarnings } from '../../src/context/EarningsContext';
 import { useExpenses } from '../../src/context/ExpensesContext';
-import { useCoins } from '../../src/context/CoinsContext';
 
 export default function WalletScreen() {
+  const { coins } = useCoins();
   const { investments } = useInvestments();
   const { earnings } = useEarnings();
   const { expenses } = useExpenses();
-  const { coins } = useCoins(); // coins é um objeto { rendaFixa, acoes, fiis, caixa }
 
-  // Calcula saldo total em reais
-  const totalInvestments = investments?.reduce((sum, inv) => sum + inv.invested, 0) ?? 0;
-  const totalEarnings = earnings?.reduce((sum, e) => sum + e.amount, 0) ?? 0;
-  const totalExpenses = expenses?.reduce((sum, e) => sum + e.amount, 0) ?? 0;
-  const saldoAtual = totalInvestments + totalEarnings - totalExpenses;
+  // Saldo em reais
+  const totalInvestments = investments.reduce((sum, inv) => sum + 0, 0); // não afeta saldo real
+  const totalEarnings = earnings.reduce((sum, e) => sum + e.amount, 0);
+  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const saldoAtual = totalEarnings - totalExpenses; // saldo real
 
-  // Total de moedas
-  const totalCoins = Object.values(coins).reduce((sum, value) => sum + value, 0);
+  // Mapeamento das moedas
+  const coinTypes = ['rendaFixa', 'acoes', 'fiis', 'caixa'] as const;
 
-  // Transações recentes (últimas 5)
-  const transacoes = [
-    ...earnings.map(e => ({ ...e, type: 'entrada' })),
-    ...expenses.map(e => ({ ...e, type: 'saida' })),
-  ]
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 5);
-
-  // Cores para os cards
-  const assetColors: { [key: string]: string } = {
+  const assetColors: Record<typeof coinTypes[number], string> = {
     rendaFixa: '#FFD700',
     acoes: '#00B894',
     fiis: '#6C5CE7',
     caixa: '#FF7675',
   };
 
-  const assetLabels: { [key: string]: string } = {
+  const assetLabels: Record<typeof coinTypes[number], string> = {
     rendaFixa: 'Renda Fixa',
     acoes: 'Ações',
     fiis: 'FIIs',
     caixa: 'Caixa',
   };
+
+  // Transações recentes
+  const transacoes = [
+    ...earnings.map(e => ({ ...e, type: 'entrada' })),
+    ...expenses.map(e => ({ ...e, type: 'saida' })),
+  ]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 5);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -53,29 +52,29 @@ export default function WalletScreen() {
         </Text>
       </View>
 
-      {/* Saldo total de moedas */}
-      <View style={styles.balanceCard}>
-        <Text style={styles.balanceLabel}>Saldo de Moedas</Text>
-        <Text style={styles.balanceValue}>{totalCoins} moedas</Text>
-      </View>
-
       {/* Cards de moedas */}
-      <Text style={styles.sectionTitle}>Minhas moedas</Text>
+      <Text style={styles.sectionTitle}>Minhas Moedas</Text>
       <View style={styles.row}>
-        {Object.entries(coins).map(([key, value]) => (
-          <View
-            key={key}
-            style={[styles.assetPill, { backgroundColor: assetColors[key] || '#ccc' }]}
-          >
-            <Text style={styles.assetLabel}>{assetLabels[key] || key}</Text>
-            <Text style={styles.assetValue}>{value} moedas</Text>
-          </View>
-        ))}
+        {coinTypes.map(type => {
+          const saldo = coins[type] || 0;
+          const invested = investments
+            .filter(i => i.asset === type)
+            .reduce((sum, i) => sum + i.invested, 0);
+          return (
+            <View key={type} style={[styles.assetPill, { backgroundColor: assetColors[type] }]}>
+              <Text style={styles.assetLabel}>{assetLabels[type]}</Text>
+              <Text style={styles.assetValue}>Disponível: {saldo}</Text>
+              <Text style={styles.assetValue}>Investido: {invested}</Text>
+            </View>
+          );
+        })}
       </View>
 
       {/* Transações recentes */}
-      <Text style={styles.sectionTitle}>Transações recentes</Text>
-      {transacoes.length === 0 && <Text style={styles.emptyText}>Nenhuma transação recente</Text>}
+      <Text style={styles.sectionTitle}>Transações Recentes</Text>
+      {transacoes.length === 0 && (
+        <Text style={styles.emptyText}>Nenhuma transação recente</Text>
+      )}
 
       {transacoes.map((t, index) => (
         <View key={index} style={styles.transactionRow}>
@@ -83,9 +82,7 @@ export default function WalletScreen() {
             <Text style={styles.transactionDesc}>{t.description}</Text>
             <Text style={styles.transactionDate}>{t.date}</Text>
           </View>
-          <Text
-            style={t.type === 'entrada' ? styles.transactionValuePositive : styles.transactionValue}
-          >
+          <Text style={t.type === 'entrada' ? styles.transactionValuePositive : styles.transactionValue}>
             {t.type === 'entrada' ? '+' : '-'}{' '}
             {t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
           </Text>
@@ -105,7 +102,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFC107',
     borderRadius: 16,
     padding: 20,
-    marginBottom: 16,
+    marginBottom: 24,
   },
   balanceLabel: {
     color: '#1B1035',
@@ -127,26 +124,25 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
     marginBottom: 12,
-    flexWrap: 'wrap',
   },
   assetPill: {
     flex: 1,
+    minWidth: 140,
     borderRadius: 14,
     padding: 12,
-    minWidth: '45%',
     marginBottom: 12,
   },
   assetLabel: {
     color: '#1B1035',
     fontSize: 14,
     fontWeight: '700',
-    flexShrink: 1,
   },
   assetValue: {
     color: '#1B1035',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     marginTop: 4,
   },

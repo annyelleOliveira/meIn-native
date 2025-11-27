@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { nanoid } from 'nanoid/non-secure';
+import { useCoins, CoinType } from './CoinsContext';
 
 export interface Investment {
   id: string;
-  description: string;
-  invested: number;
-  assetType: 'rendaFixa' | 'acoes' | 'fiis' | 'caixa';
+  asset: CoinType;      // tipo da moeda: 'rendaFixa' | 'acoes' | 'fiis' | 'caixa'
+  invested: number;     // quantidade investida em moedas
+  description?: string;
   date: string;
 }
 
@@ -18,9 +18,24 @@ const InvestmentsContext = createContext<InvestmentsContextProps | undefined>(un
 
 export const InvestmentsProvider = ({ children }: { children: ReactNode }) => {
   const [investments, setInvestments] = useState<Investment[]>([]);
+  const { spendCoins, coins } = useCoins(); // pegamos a função de gastar moedas
 
   const addInvestment = (inv: Omit<Investment, 'id'>) => {
-    setInvestments(prev => [...prev, { ...inv, id: nanoid() }]);
+    // Verifica se há saldo suficiente na moeda escolhida
+    if (coins[inv.asset] < inv.invested) {
+      console.warn(`Saldo insuficiente em ${inv.asset}`);
+      return;
+    }
+
+    // Gasta as moedas correspondentes
+    spendCoins(inv.asset, inv.invested);
+
+    // Adiciona o investimento
+    const newInvestment: Investment = {
+      ...inv,
+      id: Math.random().toString(36).substring(2, 9), // id simples
+    };
+    setInvestments(prev => [...prev, newInvestment]);
   };
 
   return (
